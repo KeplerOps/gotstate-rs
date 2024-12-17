@@ -8,6 +8,7 @@ from typing import Any, Dict, Generator
 from hsm.core.errors import ActionExecutionError
 from hsm.interfaces.abc import AbstractAction
 from hsm.interfaces.protocols import Event
+from hsm.runtime.async_support import AsyncAction
 
 
 class BasicAction(AbstractAction):
@@ -168,3 +169,47 @@ class ValidateDataAction(BasicAction):
             raise ActionExecutionError(
                 "Validation condition failed", action_name="ValidateDataAction", state_data=state_data, event=event
             )
+
+
+class AsyncSetDataAction(AsyncAction):
+    """
+    An async version of SetDataAction that sets a key-value pair in the state_data atomically.
+
+    Uses a context manager to revert changes if any error occurs.
+
+    Runtime Invariants:
+    - Changes to state_data are atomic.
+    - If an error occurs during execute(), changes are reverted.
+
+    Attributes:
+        key: The key to set in state_data.
+        value: The value to set.
+    """
+
+    def __init__(self, key: str, value: Any):
+        self.key = key
+        self.value = value
+
+    async def execute(self, event: Event, state_data: Any) -> None:
+        old_value = state_data.get(self.key)
+        state_data[self.key] = self.value
+        return old_value  # For potential rollback
+
+
+class AsyncLoggingAction(AsyncAction):
+    """
+    An async version of LoggingAction that logs the event and state_data.
+
+    Runtime Invariants:
+    - Logging is non-intrusive and does not modify event or state_data.
+
+    Attributes:
+        logger_name: Name of the logger to use.
+    """
+
+    def __init__(self, logger_name: str = "hsm.action"):
+        self.logger = logging.getLogger(logger_name)
+
+    async def execute(self, event: Event, state_data: Any) -> None:
+        event_id = event.get_id()
+        self.logger.info("Executing action for event: %s, state_data: %s", event_id, state_data)

@@ -7,6 +7,7 @@ from typing import Any, Callable, List
 from hsm.core.errors import GuardEvaluationError
 from hsm.interfaces.abc import AbstractGuard
 from hsm.interfaces.protocols import Event
+from hsm.runtime.async_support import AsyncGuard
 
 
 class BasicGuard(AbstractGuard):
@@ -182,4 +183,18 @@ class AsyncConditionGuard(BasicGuard):
                 state_data=state_data,
                 event=event,
             ) from e
+        return True
+
+
+class AsyncNoOpGuard(AsyncGuard):
+    """
+    An async guard that always returns True.
+
+    Useful as a placeholder when no condition is required in async state machines.
+
+    Runtime Invariants:
+    - Always returns True.
+    """
+
+    async def check(self, event: Event, state_data: Any) -> bool:
         return True
